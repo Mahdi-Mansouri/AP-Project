@@ -11,46 +11,41 @@ import java.nio.charset.StandardCharsets;
 public class OllamaClient {
     private static final String OLLAMA_URL = "http://localhost:11434/api/generate";
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
     public static void askQuestion(String model, String prompt) {
         try {
-
-            String jsonInput = """
-            {
-                "model": "%s",
-                "prompt": "%s",
-                "stream": true,
-                "keep_alive": 0
-            }
-            """.formatted(model, prompt);
-
-            // Open connection
-            URL url = new URL(OLLAMA_URL);
+            URL url = new URL("http://localhost:11434/api/generate");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setDoOutput(true);
 
-            try (OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream(), StandardCharsets.UTF_8)) {
-                writer.write(jsonInput);
-                writer.flush();
+            String jsonInput = "{\"model\":\"" + model + "\", \"prompt\":\"" + prompt + "\"}";
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(jsonInput.getBytes());
             }
 
-
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+            // Read the streamed response
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
                 String line;
-                while ((line = reader.readLine()) != null) {
-                    if (!line.trim().isEmpty()) {
-                        JsonNode jsonNode = objectMapper.readTree(line);
-                        String word = jsonNode.get("response").asText();
+                boolean lastWasSpace = false;
+                while ((line = br.readLine()) != null) {
+                    JsonNode responseData = objectMapper.readTree(line);
+                    String word = responseData.get("response").asText();
+
+                    if (!word.isBlank()) {
+                        if (lastWasSpace && word.startsWith(" ")) {
+                            word = word.trim();  // Remove extra leading spaces
+                        }
                         System.out.print(word + " ");
-                        System.out.flush();
+                        lastWasSpace = word.endsWith(" ");
+                    }
+
+                    if (responseData.get("done").asBoolean()) {
+                        break;
                     }
                 }
             }
-
             System.out.println();
-
         } catch (Exception e) {
             e.printStackTrace();
         }

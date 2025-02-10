@@ -27,7 +27,6 @@ public class WeaviateClient {
 
     public static void insertObject(String text, List<Double> vector) {
         if (objectExists(text)) {
-            //System.out.println("⚠️ Object already exists in Weaviate. Skipping insert.");
             return;
         }
 
@@ -41,7 +40,12 @@ public class WeaviateClient {
 
         sendRequest("/objects", "POST", jsonInput);
     }
+
     private static boolean objectExists(String text) {
+        return getObjectIdByText(text) != null;
+    }
+
+    private static String getObjectIdByText(String text) {
         String jsonQuery = """
         {
             "query": "{
@@ -53,7 +57,7 @@ public class WeaviateClient {
                             valueText: \\"%s\\"
                         }
                     ) {
-                        text
+                        _additional { id }
                     }
                 }
             }"
@@ -66,36 +70,36 @@ public class WeaviateClient {
             JsonNode jsonNode = objectMapper.readTree(response);
             JsonNode texts = jsonNode.at("/data/Get/TextEmbeddings");
 
-            return texts.isArray() && texts.size() > 0;
+            if (texts.isArray() && texts.size() > 0) {
+                return texts.get(0).at("/_additional/id").asText();
+            }
         } catch (Exception e) {
-            e.printStackTrace();
+            return null;
         }
 
-        return false;
+        return null;
     }
 
+    public static void deleteObjectByText(String text) {
+        String objectId = getObjectIdByText(text);
+        if (objectId != null) {
+            sendRequest("/objects/" + objectId, "DELETE", null);
+        }
+    }
 
     public static List<String> searchByVector(List<Double> vector) {
         try {
-            // Convert the vector list to a valid JSON array format
             String vectorJsonArray = objectMapper.writeValueAsString(vector);
 
-            // Construct the GraphQL query with proper formatting
             String jsonInput = """
         {
-            "query": "{ Get { TextEmbeddings( nearVector: { vector: %s, certainty: 0 }, limit: 5 ) { text } } }"
+            "query": "{ Get { TextEmbeddings( nearVector: { vector: %s, certainty: 0 }, limit: 15 ) { text } } }"
         }
         """.formatted(vectorJsonArray);
 
-
             String response = sendRequest("/graphql", "POST", jsonInput);
 
-            // Print the response for debugging
-            System.out.println("Weaviate Response: " + response);
-
             List<String> results = new ArrayList<>();
-
-            // Parse response
             JsonNode jsonNode = objectMapper.readTree(response);
             JsonNode texts = jsonNode.at("/data/Get/TextEmbeddings");
 
@@ -112,10 +116,6 @@ public class WeaviateClient {
             return Collections.emptyList();
         }
     }
-
-
-
-
 
     private static String sendRequest(String endpoint, String method, String jsonInput) {
         try {

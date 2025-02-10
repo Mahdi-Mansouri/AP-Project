@@ -7,7 +7,15 @@ public class UserrPreferences {
     private double languageScore = -1;
     private String desiredArea;
     private String extraDiscription;
+    private String university;
 
+    public String getUniversity() {
+        return university;
+    }
+
+    public void setUniversity(String university) {
+        this.university = university;
+    }
 
     public String getExtraDiscription() {
         return extraDiscription;

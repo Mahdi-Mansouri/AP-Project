@@ -7,7 +7,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         //WeaviateClient.createSchema();
         System.out.println("Welcome to my AP Project");
-        System.out.println("Interactive Shell - Available commands: update PATH, ask , exit");
+        System.out.println("Interactive Shell - Available commands: update PATH, ask , professors, exit");
         while (true) {
             System.out.print("> ");
             String input = scanner.nextLine().trim();
@@ -27,7 +27,10 @@ public class Main {
                     break;
 
                 case "ask":
-                    ask(scanner);
+                    askInternship(scanner);
+                    break;
+                case "professors":
+                    askProfessors(scanner);
                     break;
 
                 default:
@@ -36,7 +39,7 @@ public class Main {
         }
 
     }
-    static void ask(Scanner scanner){
+    static void askInternship(Scanner scanner){
         System.out.println("I will ask you some Questions to help you.\nWhat is you major or field of study?");
         UserrPreferences preferences = new UserrPreferences();
         preferences.setMajor(scanner.nextLine());
@@ -54,6 +57,24 @@ public class Main {
         preferences.setExtraDiscription(scanner.nextLine());
         System.out.println("What area (for example, continent) do you like the most?");
         preferences.setDesiredArea(scanner.nextLine());
-        Querying query=new Querying(preferences);
+        try{
+            Querying.InternQuery(preferences);
+        } catch (Exception e) {
+            return;
+        }
+
     }
+    static void askProfessors(Scanner scanner){
+        System.out.println("I will help you to find professors in your field that helps you to make connections with them\nWhat is your filed of study?");
+        UserrPreferences preferences = new UserrPreferences();
+        preferences.setMajor(scanner.nextLine());
+        System.out.println("What Universities or Institutes do you have in mind?");
+        preferences.setUniversity(scanner.nextLine());
+        try{
+            Querying.ProfessorQuery(preferences);
+        } catch (Exception e) {
+            return;
+        }
+    }
+
 }
