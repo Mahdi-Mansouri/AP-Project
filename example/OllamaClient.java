@@ -3,51 +3,53 @@ package org.example;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 
 public class OllamaClient {
-    private static final String OLLAMA_URL = "http://localhost:11434/api/generate";
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public static void askQuestion(String model, String prompt) {
         try {
+            // Prepare API URL
             URL url = new URL("http://localhost:11434/api/generate");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setDoOutput(true);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-            String jsonInput = "{\"model\":\"" + model + "\", \"prompt\":\"" + prompt + "\"}";
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(jsonInput.getBytes());
+            // Configure request
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+
+            // Create JSON request body with "keep_alive": 0
+            String jsonRequest = "{ \"model\": \"" + model + "\", \"prompt\": \"" + prompt + "\", \"keep_alive\": 0 }";
+
+            // Send request
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] input = jsonRequest.getBytes("utf-8");
+                os.write(input, 0, input.length);
             }
 
-            // Read the streamed response
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-                String line;
-                boolean lastWasSpace = false;
-                while ((line = br.readLine()) != null) {
-                    JsonNode responseData = objectMapper.readTree(line);
-                    String word = responseData.get("response").asText();
+            // Read response in streaming mode
+            ObjectMapper objectMapper = new ObjectMapper();
 
-                    if (!word.isBlank()) {
-                        if (lastWasSpace && word.startsWith(" ")) {
-                            word = word.trim();  // Remove extra leading spaces
-                        }
-                        System.out.print(word + " ");
-                        lastWasSpace = word.endsWith(" ");
-                    }
-
-                    if (responseData.get("done").asBoolean()) {
-                        break;
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"))) {
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    JsonNode jsonResponse = objectMapper.readTree(responseLine.trim());
+                    if (jsonResponse.has("response")) {
+                        // Print each word as soon as it's generated
+                        System.out.print(jsonResponse.get("response").asText());
+                        System.out.flush(); // Ensures immediate output
                     }
                 }
             }
-            System.out.println();
+
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("\nError: Unable to get a response.");
         }
     }
 }
+
